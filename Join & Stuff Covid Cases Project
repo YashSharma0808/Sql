@@ -1,0 +1,120 @@
+select iso_code, continent, location, date, population, total_cases , total_deaths 
+from CovidDeaths;
+
+Select iso_code, continent, location, date, population, total_tests, people_vaccinated, people_fully_vaccinated
+from CovidVaccination
+
+Select   location, population, max(total_tests) as 'total_test', max(people_vaccinated) 'total_people_vaccinated', max(people_fully_vaccinated) as 'total_fully_vaccinated'
+,max((total_tests/population))*100 as 'vaccination ratio'
+from CovidVaccination
+where continent is not null and 'vaccination_ratio' is not null
+group by location,population
+order by location,population;
+
+
+Select location, population, max(cast(total_cases as int)) 'Total_Cases' ,max(total_deaths) as Deathcount , max((total_cases/population))* 100 as Infection_Ratio,  max((total_deaths/population))* 100 as Death_ratio
+From CovidDeaths
+----where location = 'india'
+where continent is not null
+Group by location, population
+order by 3 desc
+
+
+Select location, population, max(cast(total_cases as int)) as Total_Cases ,max(cast(total_deaths as int)) as Deathcount , max((total_cases/population))* 100 as Infection_Ratio,  max((total_deaths/population))* 100 as Death_ratio
+From CovidDeaths
+where continent is null
+Group by population,location
+order by 5 desc
+
+
+Select continent, max(cast(total_cases as int)) as Total_Cases ,max(cast(total_deaths as int)) as Deathcount 
+from CovidDeaths
+where continent is not null
+Group by continent
+order by 1 desc
+
+
+
+--Join Commands
+
+Select * 
+from CovidVaccination cv
+join CovidDeaths cd
+on cd.location= cv.location
+and cd.date= cv.date
+
+
+Select cd.continent, cd.location, cd.date, cd.population, cd.total_cases, cd.total_deaths, cv.new_vaccinations, cv.total_vaccinations, cv.people_fully_vaccinated, cd.icu_patients
+from CovidVaccination cv
+join CovidDeaths cd
+	on cd.location= cv.location
+	and cd.date= cv.date
+where cd.continent is not null
+order by 2,3
+
+--For rolling calculation and converting varchar value into int by int/bigint
+
+Select cd.continent, cd.location, cd.date, cd.population,  cv.new_vaccinations,
+sum(cast(cv.new_vaccinations as bigint)) over (partition by cd.location order by cd.location, cd.date) as aggegated_Vaccinations 
+from CovidVaccination cv
+join CovidDeaths cd
+	on cd.location= cv.location
+	and cd.date= cv.date
+where cd.continent is not null
+order by 2,3
+
+
+
+-- Use of CTE
+
+
+with cdvscv (continent, location, date, population,  new_vaccinations, aggegated_Vaccinations)
+as
+(Select cd.continent, cd.location, cd.date, cd.population,  cv.new_vaccinations,
+sum(cast(cv.new_vaccinations as bigint)) over (partition by cd.location order by cd.location, cd.date) as aggegated_Vaccinations 
+from CovidVaccination cv
+join CovidDeaths cd
+	on cd.location= cv.location
+	and cd.date= cv.date
+where cd.continent is not null
+--order by 2,3)
+
+
+----Temp table
+
+Drop table if exists #cdvscs
+Create table #cdvscs
+(
+continent nvarchar(255),
+location nvarchar(255),
+date datetime,
+population numeric,
+new_vaccinations numeric,
+aggegated_vaccinations numeric
+)
+
+insert into #cdvscs
+Select cd.continent, cd.location, cd.date, cd.population,  cv.new_vaccinations,
+sum(cast(cv.new_vaccinations as bigint)) over (partition by cd.location order by cd.location, cd.date) as aggegated_Vaccinations 
+from CovidVaccination cv
+join CovidDeaths cd
+	on cd.location= cv.location
+	and cd.date= cv.date
+where cd.continent is not null
+order by 2,3
+
+Select *
+from #cdvscs
+
+create view cdvscs as 
+Select cd.continent, cd.location, cd.date, cd.population,  cv.new_vaccinations,
+sum(cast(cv.new_vaccinations as bigint)) over (partition by cd.location order by cd.location, cd.date) as aggegated_Vaccinations 
+from CovidVaccination cv
+join CovidDeaths cd
+	on cd.location= cv.location
+	and cd.date= cv.date
+where cd.continent is not null
+--order by 2,3
+
+
+
